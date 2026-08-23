@@ -1450,6 +1450,9 @@ struct ContentView: View {
 
     private var blocks: [String] { document.blocks }
 
+    /// True when `blocks[0]` is the document's metadata header.
+    private var hasFrontmatter: Bool { document.hasFrontmatter }
+
     // MARK: - Table of Contents
 
     private var tocHeadings: [TOCHeading] { document.tocHeadings }
@@ -2791,26 +2794,43 @@ fileprivate struct ParsedDocument: Equatable {
     let raw: String
     let blocks: [String]
     let tocHeadings: [ContentView.TOCHeading]
+    /// True when `blocks[0]` is a metadata header rather than document
+    /// prose. Frontmatter is always block 0 by construction, so callers
+    /// never have to re-detect it.
+    let hasFrontmatter: Bool
 
-    static let empty = ParsedDocument(raw: "", blocks: [], tocHeadings: [])
+    static let empty = ParsedDocument(raw: "", blocks: [], tocHeadings: [], hasFrontmatter: false)
 
-    private init(raw: String, blocks: [String], tocHeadings: [ContentView.TOCHeading]) {
+    private init(
+        raw: String,
+        blocks: [String],
+        tocHeadings: [ContentView.TOCHeading],
+        hasFrontmatter: Bool
+    ) {
         self.raw = raw
         self.blocks = blocks
         self.tocHeadings = tocHeadings
+        self.hasFrontmatter = hasFrontmatter
     }
 
     init(raw: String) {
-        let blocks = Self.parseBlocks(raw)
+        // A metadata header is lifted out before the blank-line split so it
+        // stays one block even when it contains blank lines of its own; the
+        // body after the closing fence splits exactly as any document does.
+        let frontmatter = frontmatterSpan(in: raw)
+        let blocks = frontmatter.map { [$0.block] + Self.parseBlocks(String(raw[$0.bodyStart...])) }
+            ?? Self.parseBlocks(raw)
         self.init(
             raw: raw,
             blocks: blocks,
-            tocHeadings: Self.parseTOC(blocks: blocks)
+            tocHeadings: Self.parseTOC(blocks: blocks),
+            hasFrontmatter: frontmatter != nil
         )
     }
 
-    // `blocks` and `tocHeadings` are pure functions of `raw`, so equality
-    // on `raw` alone is sufficient and avoids walking two arrays.
+    // `blocks`, `tocHeadings` and `hasFrontmatter` are pure functions of
+    // `raw`, so equality on `raw` alone is sufficient and avoids walking
+    // two arrays.
     static func == (lhs: ParsedDocument, rhs: ParsedDocument) -> Bool {
         lhs.raw == rhs.raw
     }
