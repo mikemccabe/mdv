@@ -29,6 +29,9 @@ It exercises the shapes a real header uses: a quoted string, a bare date,
 a folded multi-line `summary: >-`, a sequence under `tags:`, and a nested
 mapping under `metadata:` two levels deep.
 
+If you would rather not look at it, View → Show Frontmatter hides the
+header entirely and leaves the rest of the document exactly as it is.
+
 ## What the rest of the file should do
 
 Everything below the closing fence is an ordinary document. This heading

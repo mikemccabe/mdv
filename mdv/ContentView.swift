@@ -80,6 +80,12 @@ struct ContentView: View {
     /// placeholder in the rendered document.
     @AppStorage("mdv_load_remote_images") private var loadRemoteImages: Bool = false
 
+    /// Whether a document's metadata header is drawn. Default on. Purely a
+    /// display choice: the header stays block 0 either way, so block
+    /// indices, bookmarks and find all behave the same whichever way this
+    /// sits. Toggle via View → Show Frontmatter.
+    @AppStorage("mdv_show_frontmatter") private var showFrontmatter: Bool = true
+
     /// Watches the currently-loaded file so external-editor saves push
     /// fresh content into the viewer automatically.
     @State private var fileWatcher = FileWatcher()
@@ -2039,12 +2045,18 @@ struct ContentView: View {
             // Metadata, not prose: a properties table rather than markdown.
             // Ordered after the find branch on purpose — while find is
             // active the header shows its source text with the matches
-            // highlighted, same as every other block.
-            FrontmatterTableView(
-                rows: rows,
-                theme: themes.current,
-                fontScale: themes.fontScale
-            )
+            // highlighted, same as every other block. That ordering is also
+            // what reveals a header hidden below: a match inside it stays
+            // reachable and visible for as long as find is running, the way
+            // an editor shows hits inside a folded region, so find never
+            // sends the reader to a block that draws nothing.
+            if showFrontmatter {
+                FrontmatterTableView(
+                    rows: rows,
+                    theme: themes.current,
+                    fontScale: themes.fontScale
+                )
+            }
         } else {
             Markdown(smartTypographyEnabled ? smartenMarkdown(block) : block)
                 .markdownTheme(themes.current.markdownTheme(scale: themes.fontScale))
