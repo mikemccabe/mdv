@@ -123,6 +123,20 @@ struct mdvApp: App {
                     NotificationCenter.default.post(name: .navigateForward, object: nil)
                 }
                 .keyboardShortcut(.rightArrow, modifiers: .command)
+                Divider()
+                // Step the sidebar list itself, in list order. ⌃⇥ / ⌃⇧⇥ are
+                // bound to the same pair by a key monitor in ContentView,
+                // since a menu item can only carry one key equivalent.
+                Button("Next File") {
+                    NotificationCenter.default.post(name: .nextFile, object: nil)
+                }
+                .keyboardShortcut("]", modifiers: [.command, .shift])
+                .disabled(!hasNextFile)
+                Button("Previous File") {
+                    NotificationCenter.default.post(name: .previousFile, object: nil)
+                }
+                .keyboardShortcut("[", modifiers: [.command, .shift])
+                .disabled(!hasPreviousFile)
             }
             // View menu addition: Smart Typography toggle. Sits in the
             // SwiftUI-generated View menu (CommandGroup(after: .toolbar)).
@@ -206,6 +220,24 @@ struct mdvApp: App {
         }
     }
 
+    /// Row of the open file in the sidebar list, or nil when nothing is
+    /// open. Drives the Next / Previous File enabled state, which clamps
+    /// at both ends of the list rather than wrapping.
+    private var selectedIndex: Int? {
+        guard !selectedPath.isEmpty else { return nil }
+        return history.entries.firstIndex { $0.path == selectedPath }
+    }
+
+    private var hasNextFile: Bool {
+        guard let i = selectedIndex else { return false }
+        return i + 1 < history.entries.count
+    }
+
+    private var hasPreviousFile: Bool {
+        guard let i = selectedIndex else { return false }
+        return i > 0
+    }
+
     private func bookmarkSlotLabel(n: Int, bookmark: Bookmark?) -> String {
         if let b = bookmark {
             return "\(n).  \(b.title)"
@@ -248,4 +280,6 @@ extension Notification.Name {
     static let toggleSidebar = Notification.Name("toggleSidebar")
     static let closeFile = Notification.Name("closeFile")
     static let closeAllFiles = Notification.Name("closeAllFiles")
+    static let nextFile = Notification.Name("nextFile")
+    static let previousFile = Notification.Name("previousFile")
 }

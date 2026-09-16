@@ -13,6 +13,7 @@ A "totally solved problem in computer science" rendered into a window. Here is w
 ## Moving around
 
 - **⌘←** / **⌘→** — back and forward through files you have recently opened. Like a browser. The thing browsers do.
+- **⌘⇧]** / **⌘⇧[** — next and previous file, straight down and up the history sidebar, stopping at the ends. **⌃⇥** / **⌃⇧⇥** do the same thing, for fingers that already know that one.
 - Click a link to a sibling `.md` in the same directory — it loads. Click an `https://` link — it goes to your browser, where it belongs.
 - `#fragment` links scroll to the matching heading. `[See above](#earlier-section)` actually does that.
 

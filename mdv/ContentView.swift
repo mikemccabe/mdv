@@ -214,6 +214,7 @@ struct ContentView: View {
     @State private var currentMatchIndex: Int = 0
     @State private var findFieldRequestFocus: Bool = false
     @StateObject private var keyMonitor = KeyMonitor()
+    @StateObject private var fileStepMonitor = FileStepMonitor()
 
     // Global (cross-history) search
     @State private var globalQuery: String = ""
@@ -277,6 +278,35 @@ struct ContentView: View {
                     return nil
                 }
                 return event
+            }
+        }
+
+        func uninstall() {
+            if let m = monitor {
+                NSEvent.removeMonitor(m)
+                monitor = nil
+            }
+        }
+
+        deinit { uninstall() }
+    }
+
+    /// ⌃⇥ / ⌃⇧⇥ as a second binding for Next / Previous File. A SwiftUI
+    /// menu item carries exactly one key equivalent, and the Navigate menu
+    /// already spends it on ⇧⌘] / ⇧⌘[, so the Tab pair comes from a local
+    /// key monitor instead. Only Control-modified Tab is swallowed —
+    /// unmodified Tab still reaches whatever has focus (the find bar and
+    /// the history search field both live on it).
+    final class FileStepMonitor: ObservableObject {
+        private var monitor: Any?
+
+        func install(step: @escaping (Int) -> Void) {
+            guard monitor == nil else { return }
+            monitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
+                guard event.keyCode == 48,
+                      event.modifierFlags.contains(.control) else { return event }
+                step(event.modifierFlags.contains(.shift) ? -1 : 1)
+                return nil
             }
         }
 
@@ -399,7 +429,9 @@ struct ContentView: View {
             navigateForward: goForward,
             toggleSidebar: toggleSidebar,
             closeFile: closeFile,
-            closeAllFiles: requestCloseAll
+            closeAllFiles: requestCloseAll,
+            nextFile: { stepFile(by: 1) },
+            previousFile: { stepFile(by: -1) }
         ))
         .onOpenURL { url in
             loadFile(url)
@@ -528,6 +560,7 @@ struct ContentView: View {
         .onAppear {
             paneTracker.sidebarRightEdge = sidebarCollapsed ? 0 : (sidebarWidth + 8) // include drag handle width
             paneTracker.install()
+            fileStepMonitor.install { stepFile(by: $0) }
             if let url = initialURL {
                 loadFile(url)
             } else if let last = history.entries.first {
@@ -550,6 +583,7 @@ struct ContentView: View {
                 persistScrollPosition(for: entry)
             }
             paneTracker.uninstall()
+            fileStepMonitor.uninstall()
         }
         .onChange(of: sidebarWidth) { newValue in
             if !sidebarCollapsed {
@@ -2230,6 +2264,20 @@ struct ContentView: View {
         applySnapshot(next)
     }
 
+    /// ⇧⌘] / ⇧⌘[ (and ⌃⇥ / ⌃⇧⇥): move the selection one row down or up
+    /// the sidebar, clamped at both ends — no wrap. Assigning
+    /// `selectedEntry` is exactly the sidebar-click path: unlike `loadFile`
+    /// it never calls `history.add`, so stepping doesn't hoist each file to
+    /// the top of the list and reorder it under the user mid-walk.
+    private func stepFile(by offset: Int) {
+        guard let current = selectedEntry,
+              let idx = history.entries.firstIndex(where: { $0.path == current.path })
+        else { return }
+        let target = idx + offset
+        guard target >= 0, target < history.entries.count else { return }
+        selectedEntry = history.entries[target]
+    }
+
     /// Push a snapshot of the current view onto `backStack` for a
     /// within-document jump (TOC click, same-doc fragment link). Clears
     /// the forward stack — a fresh jump branches the history. No-op when
@@ -3118,6 +3166,8 @@ private struct NotificationHandlers: ViewModifier {
     let toggleSidebar: () -> Void
     let closeFile: () -> Void
     let closeAllFiles: () -> Void
+    let nextFile: () -> Void
+    let previousFile: () -> Void
 
     func body(content: Content) -> some View {
         secondHalf(firstHalf(content))
@@ -3153,6 +3203,8 @@ private struct NotificationHandlers: ViewModifier {
             .onReceive(NotificationCenter.default.publisher(for: .navigateForward)) { _ in navigateForward() }
             .onReceive(NotificationCenter.default.publisher(for: .closeFile)) { _ in closeFile() }
             .onReceive(NotificationCenter.default.publisher(for: .closeAllFiles)) { _ in closeAllFiles() }
+            .onReceive(NotificationCenter.default.publisher(for: .nextFile)) { _ in nextFile() }
+            .onReceive(NotificationCenter.default.publisher(for: .previousFile)) { _ in previousFile() }
     }
 }
 
