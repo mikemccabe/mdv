@@ -5,6 +5,7 @@ A "totally solved problem in computer science" rendered into a window. Here is w
 ## Opening files
 
 - **⌘O** opens a file. **⌘⇧O** opens one in a new window.
+- **⌘W** closes the current file — it drops out of history and the next one takes its place. **⌘⇧W** closes the window instead. **⌘⌥W** closes everything and empties the sidebar; it asks first, because it also throws away the search index.
 - Drop a `.md` (or `.markdown`, or `.mdown`) onto the icon — works.
 - Drop a *directory* onto the icon — picks `README.md` if it finds one, otherwise the alphabetically-first markdown, and seeds the rest into history as siblings.
 - Run `mdv FILE` from the terminal once you have installed the CLI. Hit **mdv → Install Command Line Tool…** to drop the symlink into `/usr/local/bin`. Yes, it asks for your password. No, it is not phoning home.

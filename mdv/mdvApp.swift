@@ -25,6 +25,14 @@ struct mdvApp: App {
     /// the ContentView's @AppStorage 1:1.
     @AppStorage("mdv_sidebar_collapsed") private var sidebarCollapsed: Bool = false
 
+    /// Mirror of the sidebar selection (the open file's path, empty for
+    /// none), so the File menu can enable/disable its Close items. Same
+    /// @AppStorage mirroring as `sidebarCollapsed` above: one line at each
+    /// end for a single-window app, where a FocusedValue key would need a
+    /// key type, an extension, and a scene-value modifier to say the same
+    /// thing.
+    @AppStorage("mdv_selected_path") private var selectedPath: String = ""
+
     init() {
         // Register the bundled Alegreya weights into the process-local font
         // space before any view hierarchy resolves a custom font name. Done
@@ -72,6 +80,28 @@ struct mdvApp: App {
                         NotificationCenter.default.post(name: .forgetExternalEditor, object: nil)
                     }
                 }
+            }
+            // Replaces the default File → Close, which closed the only
+            // window and left the app running with nothing on screen. ⌘W
+            // now closes the open *file* (the sidebar entry, like a tab)
+            // and ⇧⌘W closes the window — the standard macOS split once
+            // ⌘W means close-tab.
+            CommandGroup(replacing: .saveItem) {
+                Button("Close File") {
+                    NotificationCenter.default.post(name: .closeFile, object: nil)
+                }
+                .keyboardShortcut("w", modifiers: .command)
+                .disabled(selectedPath.isEmpty)
+                Button("Close Window") {
+                    NSApp.keyWindow?.performClose(nil)
+                }
+                .keyboardShortcut("w", modifiers: [.command, .shift])
+                Divider()
+                Button("Close All") {
+                    NotificationCenter.default.post(name: .closeAllFiles, object: nil)
+                }
+                .keyboardShortcut("w", modifiers: [.command, .option])
+                .disabled(history.entries.isEmpty)
             }
             CommandGroup(after: .pasteboard) {
                 Divider()
@@ -216,4 +246,6 @@ extension Notification.Name {
     static let navigateBack = Notification.Name("navigateBack")
     static let navigateForward = Notification.Name("navigateForward")
     static let toggleSidebar = Notification.Name("toggleSidebar")
+    static let closeFile = Notification.Name("closeFile")
+    static let closeAllFiles = Notification.Name("closeAllFiles")
 }
