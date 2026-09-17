@@ -225,6 +225,10 @@ struct ContentView: View {
     enum PaneFocus { case sidebar, viewer }
     @StateObject private var paneTracker = PaneTracker()
 
+    /// Arrow / page / space / home / end scrolling for the document pane.
+    /// See ScrollKeyMonitor.
+    @StateObject private var scrollKeyMonitor = ScrollKeyMonitor()
+
     final class PaneTracker: ObservableObject {
         @Published var lastFocusedPane: PaneFocus = .viewer
         var sidebarRightEdge: CGFloat = 240
@@ -1286,6 +1290,7 @@ struct ContentView: View {
                         .frame(maxWidth: themes.current.articleMaxWidth ?? .infinity, alignment: .leading)
                         .frame(maxWidth: .infinity,
                                alignment: themes.current.articleMaxWidth == nil ? .leading : .center)
+                        .background(EnclosingScrollViewAccessor { scrollKeyMonitor.scrollView = $0 })
                     }
                     .onChange(of: currentMatchIndex) { _ in
                         scrollToCurrentMatch(proxy: proxy)

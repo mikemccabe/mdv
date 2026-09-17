@@ -14,6 +14,7 @@ A "totally solved problem in computer science" rendered into a window. Here is w
 - **⌘←** / **⌘→** — back and forward through files you have recently opened. Like a browser. The thing browsers do.
 - Click a link to a sibling `.md` in the same directory — it loads. Click an `https://` link — it goes to your browser, where it belongs.
 - `#fragment` links scroll to the matching heading. `[See above](#earlier-section)` actually does that.
+- **↓** / **↑** scroll a few lines. **Page Down** / **Page Up** and **space** / **⇧space** go a screen at a time. **Home** / **End** go to the top and the bottom. They work whether or not you have clicked into the text first, which is the entire point.
 
 ## Find
 
