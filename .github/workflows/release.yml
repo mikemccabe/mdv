@@ -126,10 +126,19 @@ jobs:
           prerelease: false
           body: |
             Build of the **mikemccabe/mdv** fork: upstream
-            [tqbf/mdv](https://github.com/tqbf/mdv) plus the frontmatter
-            properties-table feature.
+            [tqbf/mdv](https://github.com/tqbf/mdv) plus the fork's patches
+            (see the README's "This fork" section).
 
             ## Install
+
+            One line, latest release (downloads, checks the sha256, extracts
+            to `/Applications`, clears quarantine):
+
+            ```sh
+            curl -fsSL https://raw.githubusercontent.com/${{ github.repository }}/fork/install.sh | sh
+            ```
+
+            Or this release by hand:
 
             ```sh
             curl -LO https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/mdv-${{ env.VERSION }}-macos.zip
