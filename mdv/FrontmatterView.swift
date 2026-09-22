@@ -25,6 +25,28 @@ struct FrontmatterTableView: View {
     /// the one pass where keys are still only as wide as themselves.
     @State private var keyColumnWidth: CGFloat?
 
+    /// `keyColumnWidth` seeds the state for renderers that make a single
+    /// layout pass (`ImageRenderer`, used for print), where the preference
+    /// below would report a width but never get to apply it; measure
+    /// `keyColumn` and pass the result. On screen leave it nil.
+    init(rows: [FrontmatterRow], theme: MDVTheme, fontScale: CGFloat, keyColumnWidth: CGFloat? = nil) {
+        self.rows = rows
+        self.theme = theme
+        self.fontScale = fontScale
+        _keyColumnWidth = State(initialValue: keyColumnWidth)
+    }
+
+    /// The key column on its own, every key at its natural padded width:
+    /// laid out unconstrained, this view is exactly as wide as the widest
+    /// key, the same number the preference finds on screen.
+    var keyColumn: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            ForEach(Array(rows.compactMap(\.key).enumerated()), id: \.offset) { _, key in
+                keyLabel(key)
+            }
+        }
+    }
+
     var body: some View {
         if !rows.isEmpty {
             VStack(spacing: 0) {
@@ -63,16 +85,21 @@ struct FrontmatterTableView: View {
     /// width is proposed, so widening the cell cannot change the number
     /// that decided the widening.
     private func keyCell(_ key: String, row: Int) -> some View {
+        keyLabel(key)
+            .background(widthProbe)
+            .frame(width: keyColumnWidth, alignment: .topLeading)
+            .padding(.vertical, Self.vPadding)
+            .modifier(CellBand(fill: fill(row), border: theme.border))
+    }
+
+    /// A key at its natural padded width, before any column stretching.
+    private func keyLabel(_ key: String) -> some View {
         Text(key)
             .font(font(weight: .semibold))
             .foregroundStyle(theme.text)
             .lineSpacing(round(bodySize * 0.25))
             .padding(.horizontal, Self.hPadding)
             .fixedSize()
-            .background(widthProbe)
-            .frame(width: keyColumnWidth, alignment: .topLeading)
-            .padding(.vertical, Self.vPadding)
-            .modifier(CellBand(fill: fill(row), border: theme.border))
     }
 
     /// The value half of a row, and the whole of a keyless one: takes the

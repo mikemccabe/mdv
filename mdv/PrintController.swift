@@ -29,7 +29,13 @@ import SwiftUI
 enum PrintController {
 
     struct Request {
+        /// Body blocks. A metadata header is not among them: the caller
+        /// drops it and passes its rows as `frontmatter` instead.
         let blocks: [String]
+        /// Rows of the document's metadata header, printed as the same
+        /// properties table the screen shows ahead of the body; nil when the
+        /// document has none or the header is hidden on screen.
+        let frontmatter: [FrontmatterRow]?
         let jobTitle: String
         let theme: MDVTheme
         let baseURL: URL?
@@ -160,22 +166,14 @@ enum PrintController {
         // hover padding × 2.
         let spacing: CGFloat = 12
         var y: CGFloat = 0
-        for (idx, block) in request.blocks.enumerated() {
-            let source = mermaid.failed.contains(idx) ? retagMermaidFence(block) : block
-            let markdown = request.smartTypography ? smartenMarkdown(source) : source
-            let root = PrintBlockView(
-                markdown: markdown,
-                mermaidImage: mermaid.images[idx],
-                theme: request.theme,
-                baseURL: request.baseURL
-            )
+        func append(_ view: some View) {
             // Pinning the width inside the root view makes ImageRenderer
             // report the ideal height at that width.
-            .frame(width: contentWidth, alignment: .topLeading)
-            .environment(\.colorScheme, request.theme.isDark ? .dark : .light)
-
+            let root = view
+                .frame(width: contentWidth, alignment: .topLeading)
+                .environment(\.colorScheme, request.theme.isDark ? .dark : .light)
             guard let render = renderBlockPDF(root: AnyView(root), width: contentWidth) else {
-                continue
+                return
             }
             let frame = NSRect(x: 0, y: y, width: contentWidth, height: ceil(render.size.height))
             container.blockRenders.append(
@@ -185,8 +183,43 @@ enum PrintController {
             )
             y += frame.height + spacing
         }
+
+        if let rows = request.frontmatter {
+            append(frontmatterTable(rows: rows, theme: request.theme))
+        }
+        for (idx, block) in request.blocks.enumerated() {
+            let source = mermaid.failed.contains(idx) ? retagMermaidFence(block) : block
+            let markdown = request.smartTypography ? smartenMarkdown(source) : source
+            append(PrintBlockView(
+                markdown: markdown,
+                mermaidImage: mermaid.images[idx],
+                theme: request.theme,
+                baseURL: request.baseURL
+            ))
+        }
         container.frame = NSRect(x: 0, y: 0, width: contentWidth, height: max(y - spacing, 1))
         return container
+    }
+
+    /// The metadata header as the screen's properties table, unzoomed. The
+    /// table aligns its key column through a preference that needs a second
+    /// layout pass, which ImageRenderer never makes, so the column width is
+    /// measured up front from the table's own key probe and seeded in.
+    private static func frontmatterTable(rows: [FrontmatterRow], theme: MDVTheme) -> some View {
+        let probe = FrontmatterTableView(rows: rows, theme: theme, fontScale: 1.0).keyColumn
+        let width = idealSize(of: probe).width
+        return FrontmatterTableView(
+            rows: rows, theme: theme, fontScale: 1.0,
+            keyColumnWidth: width > 0 ? width : nil
+        )
+    }
+
+    /// One unconstrained layout pass, no drawing.
+    private static func idealSize(of view: some View) -> CGSize {
+        let renderer = ImageRenderer(content: view)
+        var size = CGSize.zero
+        renderer.render { laidOut, _ in size = laidOut }
+        return size
     }
 
     /// Renders one block view into a single-page vector PDF at the given
