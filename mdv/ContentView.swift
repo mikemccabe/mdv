@@ -1572,8 +1572,11 @@ struct ContentView: View {
             return
         }
         let printTheme = MDVTheme.highContrast
+        // A metadata header is block 0 by construction; it goes to the
+        // printer as rows (or not at all, when hidden), never as markdown.
         PrintController.printDocument(PrintController.Request(
-            blocks: blocks,
+            blocks: frontmatter == nil ? blocks : Array(blocks.dropFirst()),
+            frontmatter: showFrontmatter ? frontmatter : nil,
             jobTitle: selectedEntry?.filename ?? "mdv",
             theme: printTheme,
             baseURL: currentDocumentDirectory,
