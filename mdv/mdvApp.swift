@@ -108,6 +108,12 @@ struct mdvApp: App {
                 .keyboardShortcut("w", modifiers: [.command, .option])
                 .disabled(history.entries.isEmpty)
             }
+            CommandGroup(replacing: .printItem) {
+                Button("Print…") {
+                    NotificationCenter.default.post(name: .printDocument, object: nil)
+                }
+                .keyboardShortcut("p", modifiers: .command)
+            }
             CommandGroup(after: .pasteboard) {
                 Divider()
                 Button("Find…") {
@@ -292,4 +298,5 @@ extension Notification.Name {
     static let closeAllFiles = Notification.Name("closeAllFiles")
     static let nextFile = Notification.Name("nextFile")
     static let previousFile = Notification.Name("previousFile")
+    static let printDocument = Notification.Name("printDocument")
 }

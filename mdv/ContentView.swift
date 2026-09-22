@@ -441,7 +441,8 @@ struct ContentView: View {
             closeFile: closeFile,
             closeAllFiles: requestCloseAll,
             nextFile: { stepFile(by: 1) },
-            previousFile: { stepFile(by: -1) }
+            previousFile: { stepFile(by: -1) },
+            printDocument: printCurrentDocument
         ))
         .onOpenURL { url in
             loadFile(url)
@@ -1558,6 +1559,27 @@ struct ContentView: View {
         }
         flashClearWork = work
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.6, execute: work)
+    }
+
+    // MARK: - Print
+
+    /// ⌘P / File > Print. Always prints in High Contrast (the light,
+    /// GitHub-style theme) regardless of the on-screen theme — classic
+    /// ink-friendly print behavior; the screen is untouched.
+    private func printCurrentDocument() {
+        guard !rawMarkdown.isEmpty else {
+            NSSound.beep()
+            return
+        }
+        let printTheme = MDVTheme.highContrast
+        PrintController.printDocument(PrintController.Request(
+            blocks: blocks,
+            jobTitle: selectedEntry?.filename ?? "mdv",
+            theme: printTheme,
+            baseURL: currentDocumentDirectory,
+            smartTypography: userSmartTypography && printTheme.smartTypographyAllowed,
+            window: NSApp.keyWindow
+        ))
     }
 
     // MARK: - Table of Contents
@@ -3220,6 +3242,7 @@ private struct NotificationHandlers: ViewModifier {
     let closeAllFiles: () -> Void
     let nextFile: () -> Void
     let previousFile: () -> Void
+    let printDocument: () -> Void
 
     func body(content: Content) -> some View {
         secondHalf(firstHalf(content))
@@ -3257,6 +3280,7 @@ private struct NotificationHandlers: ViewModifier {
             .onReceive(NotificationCenter.default.publisher(for: .closeAllFiles)) { _ in closeAllFiles() }
             .onReceive(NotificationCenter.default.publisher(for: .nextFile)) { _ in nextFile() }
             .onReceive(NotificationCenter.default.publisher(for: .previousFile)) { _ in previousFile() }
+            .onReceive(NotificationCenter.default.publisher(for: .printDocument)) { _ in printDocument() }
     }
 }
 
