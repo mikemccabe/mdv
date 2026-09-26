@@ -114,6 +114,18 @@ jobs:
             dist/mdv-${{ env.VERSION }}-macos.zip.sha256
           retention-days: 14
 
+      # The fork's patches are the branches merged on its first-parent
+      # line since upstream main; upstream's own merges don't match.
+      - name: List fork patches
+        run: |
+          set -euo pipefail
+          {
+            echo "PATCHES<<EOF"
+            git log --first-parent --merges --reverse --format=%s origin/main..HEAD \
+              | sed -n 's/^Merge \(.*\) into fork$/- `\1`/p'
+            echo "EOF"
+          } >> "$GITHUB_ENV"
+
       - name: Publish GitHub release
         if: github.ref_type == 'tag'
         uses: softprops/action-gh-release@v2
@@ -126,8 +138,10 @@ jobs:
           prerelease: false
           body: |
             Build of the **mikemccabe/mdv** fork: upstream
-            [tqbf/mdv](https://github.com/tqbf/mdv) plus the fork's patches
-            (see the README's "This fork" section).
+            [tqbf/mdv](https://github.com/tqbf/mdv) plus these branches,
+            merged on the `fork` branch:
+
+            ${{ env.PATCHES }}
 
             ## Install
 
