@@ -34,7 +34,9 @@ Type `make`.
 
 [mikemccabe/mdv](https://github.com/mikemccabe/mdv) is upstream plus a few
 patches (frontmatter properties table, Cmd-W closes the file, keyboard
-scrolling, `open -g` stays in the background), built as GitHub releases
+scrolling, `open -g` stays in the background, print and Save as PDF from
+tqbf/mdv#33, find highlighting in the theme's typography, tinted `diff`
+code blocks), built as GitHub releases
 from the `fork` branch. The builds are ad-hoc signed, not notarized, so a
 zip downloaded through a browser is quarantined and Gatekeeper refuses
 it. The install script sidesteps that: it fetches the latest release with
