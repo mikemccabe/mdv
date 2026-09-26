@@ -33,13 +33,10 @@ Type `make`.
 ### This fork
 
 [mikemccabe/mdv](https://github.com/mikemccabe/mdv) is upstream plus a few
-patches (frontmatter properties table, Cmd-W closes the file, keyboard
-scrolling, `open -g` stays in the background, print and Save as PDF from
-tqbf/mdv#33, find highlighting in the theme's typography, tinted `diff`
-code blocks), built as GitHub releases
-from the `fork` branch. The builds are ad-hoc signed, not notarized, so a
-zip downloaded through a browser is quarantined and Gatekeeper refuses
-it. The install script sidesteps that: it fetches the latest release with
+patches, built as GitHub releases from the `fork` branch; each release's
+notes list the branches it carries. The builds are ad-hoc signed, not
+notarized, so a zip downloaded through a browser is quarantined and
+Gatekeeper refuses it. The install script sidesteps that: it fetches the latest release with
 curl, checks the sha256, extracts to `/Applications`, and clears the
 quarantine attribute.
 
