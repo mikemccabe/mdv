@@ -255,10 +255,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         for url in urls {
             NotificationCenter.default.post(name: .openURLInWindow, object: url)
         }
+        // Launch Services already activates the app for a normal open
+        // (Finder, `open`, the command line helper). Activating here too
+        // would override a background open, so only bring the window
+        // forward when we are already the active app.
+        guard NSApp.isActive else { return }
         if let win = NSApp.keyWindow ?? NSApp.windows.first {
             win.makeKeyAndOrderFront(nil)
         }
-        NSApp.activate(ignoringOtherApps: true)
     }
 }
 
