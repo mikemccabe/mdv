@@ -1,0 +1,180 @@
+name: release
+
+# Tag-driven release build for the mikemccabe/mdv fork.
+#
+# Upstream's build.yml publishes a rolling "latest" prerelease from main;
+# this workflow instead cuts a versioned release from a v* tag on the
+# `fork` branch. Upstream's Makefile `dist` target wants tqbf's Developer
+# ID certificate, which this fork does not have, so we ship what
+# build.sh produces: an ad-hoc signed, un-notarized bundle.
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+jobs:
+  release:
+    name: build and publish release
+    runs-on: macos-15
+    timeout-minutes: 30
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Show toolchain
+        run: |
+          sw_vers
+          xcode-select -p
+          xcodebuild -version
+          swift --version
+
+      # Same SwiftPM checkout cache as build.yml, pinned to the release
+      # configuration (this workflow has no debug/release matrix).
+      - name: Cache SwiftPM checkouts
+        uses: actions/cache@v4
+        with:
+          path: .build
+          key: ${{ runner.os }}-spm-release-${{ hashFiles('Package.resolved') }}
+          restore-keys: |
+            ${{ runner.os }}-spm-release-
+            ${{ runner.os }}-spm-
+
+      # Tag v1.6.0 -> VERSION 1.6.0. A manual workflow_dispatch run has no
+      # tag to read, so it builds a throwaway 0.0.0-dev and skips publishing.
+      - name: Derive version
+        run: |
+          set -euo pipefail
+          if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
+            VERSION="${GITHUB_REF_NAME#v}"
+          else
+            VERSION="0.0.0-dev"
+          fi
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+          echo "VERSION=$VERSION"
+
+      # mdv/Info.plist is checked in with a placeholder 1.0.0 / 1, and
+      # build.sh copies it verbatim into the bundle, so stamp it here
+      # before building. CFBundleVersion gets the run number so every
+      # build is monotonic even if a tag is recut.
+      - name: Stamp Info.plist
+        run: |
+          set -euo pipefail
+          /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $VERSION" mdv/Info.plist
+          /usr/libexec/PlistBuddy -c "Set :CFBundleVersion ${{ github.run_number }}" mdv/Info.plist
+          /usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" mdv/Info.plist
+          /usr/libexec/PlistBuddy -c "Print :CFBundleVersion" mdv/Info.plist
+
+      - name: Build release
+        run: ./build.sh release
+
+      # Same sanity checks as build.yml's "Verify .app bundle" step:
+      # Info.plist, the executable, fonts, tree-sitter highlight queries,
+      # AppIcon, and a codesign that did not error out.
+      - name: Verify .app bundle
+        run: |
+          set -euo pipefail
+          APP="build/mdv.app"
+          test -d "$APP" || { echo "FAIL: no $APP"; exit 1; }
+          test -x "$APP/Contents/MacOS/mdv" || { echo "FAIL: executable missing"; exit 1; }
+          test -f "$APP/Contents/Info.plist" || { echo "FAIL: Info.plist missing"; exit 1; }
+          test -f "$APP/Contents/Resources/AppIcon.icns" || { echo "FAIL: AppIcon missing"; exit 1; }
+
+          ls "$APP/Contents/Resources/" | grep -q "Alegreya-Regular.otf" \
+            || { echo "FAIL: bundled fonts missing"; exit 1; }
+          ls "$APP/Contents/Resources/" | grep -q "rust-highlights.scm" \
+            || { echo "FAIL: tree-sitter grammars missing"; exit 1; }
+
+          file "$APP/Contents/MacOS/mdv"
+          codesign -dv "$APP" 2>&1
+          echo "OK: bundle looks healthy"
+
+      # ditto --keepParent preserves the .app directory structure, symlinks
+      # and the code signature; a plain `zip` does not. The shasum runs
+      # inside dist/ so the checksum file records the bare filename.
+      - name: Package
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          ditto -c -k --keepParent build/mdv.app "dist/mdv-$VERSION-macos.zip"
+          cd dist
+          shasum -a 256 "mdv-$VERSION-macos.zip" > "mdv-$VERSION-macos.zip.sha256"
+          cat "mdv-$VERSION-macos.zip.sha256"
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: mdv-${{ env.VERSION }}-macos
+          path: |
+            dist/mdv-${{ env.VERSION }}-macos.zip
+            dist/mdv-${{ env.VERSION }}-macos.zip.sha256
+          retention-days: 14
+
+      # The fork's patches are the branches merged on its first-parent
+      # line since upstream main; upstream's own merges don't match.
+      - name: List fork patches
+        run: |
+          set -euo pipefail
+          {
+            echo "PATCHES<<EOF"
+            git log --first-parent --merges --reverse --format=%s origin/main..HEAD \
+              | sed -n 's/^Merge \(.*\) into fork$/- `\1`/p'
+            echo "EOF"
+          } >> "$GITHUB_ENV"
+
+      - name: Publish GitHub release
+        if: github.ref_type == 'tag'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/mdv-${{ env.VERSION }}-macos.zip
+            dist/mdv-${{ env.VERSION }}-macos.zip.sha256
+          name: mdv ${{ env.VERSION }}
+          generate_release_notes: true
+          prerelease: false
+          body: |
+            Build of the **mikemccabe/mdv** fork: upstream
+            [tqbf/mdv](https://github.com/tqbf/mdv) plus these branches,
+            merged on the `fork` branch:
+
+            ${{ env.PATCHES }}
+
+            ## Install
+
+            One line, latest release (downloads, checks the sha256, extracts
+            to `/Applications`, clears quarantine):
+
+            ```sh
+            curl -fsSL https://raw.githubusercontent.com/${{ github.repository }}/fork/install.sh | sh
+            ```
+
+            Or this release by hand:
+
+            ```sh
+            curl -LO https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/mdv-${{ env.VERSION }}-macos.zip
+            ditto -x -k mdv-${{ env.VERSION }}-macos.zip /Applications
+            open /Applications/mdv.app
+            ```
+
+            `unzip mdv-${{ env.VERSION }}-macos.zip -d /Applications` works too.
+
+            Checksum: `mdv-${{ env.VERSION }}-macos.zip.sha256`.
+
+            ## Gatekeeper
+
+            This build is ad-hoc signed and not notarized. A zip downloaded
+            through a browser is quarantined, and macOS will refuse to open
+            the app ("mdv is damaged" or "cannot be opened"). Two ways round
+            it:
+
+            * Download with `curl`, as above. curl does not set the
+              quarantine attribute.
+            * Or clear the attribute after copying the app:
+
+            ```sh
+            xattr -dr com.apple.quarantine /Applications/mdv.app
+            ```

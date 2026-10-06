@@ -30,6 +30,27 @@ Type `make`.
 
 (Or download a release from Github.)
 
+### This fork
+
+[mikemccabe/mdv](https://github.com/mikemccabe/mdv) is upstream plus a few
+patches, built as GitHub releases from the `fork` branch; each release's
+notes list the branches it carries. The builds are ad-hoc signed, not
+notarized, so a zip downloaded through a browser is quarantined and
+Gatekeeper refuses it. The install script sidesteps that: it fetches the latest release with
+curl, checks the sha256, extracts to `/Applications`, and clears the
+quarantine attribute.
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/mikemccabe/mdv/fork/install.sh | sh
+```
+
+`MDV_APP_DIR=~/Applications` installs there instead; `MDV_VERSION=v1.5.1-mm.2`
+pins a release. Or do it by hand from the
+[releases page](https://github.com/mikemccabe/mdv/releases): `curl -LO` the
+zip (curl does not set the quarantine attribute), `ditto -x -k` it into
+`/Applications`, and if you did use a browser,
+`xattr -dr com.apple.quarantine /Applications/mdv.app`.
+
 ## Here Are My Prompts, Roughly
 
 > Install this macOS UI skill I found.
